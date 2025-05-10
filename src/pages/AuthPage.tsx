@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { toast } from "@/components/ui/sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -16,6 +15,13 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { signIn, signUp, resetPassword, user } = useAuth();
+
+  // If user is already logged in, redirect to home page
+  if (user) {
+    navigate("/");
+    return null;
+  }
 
   const toggleView = () => {
     setIsLogin(!isLogin);
@@ -29,28 +35,12 @@ export default function AuthPage() {
 
     try {
       if (isLogin) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-        
-        if (error) throw error;
-        
-        toast.success("Successfully logged in!");
-        navigate("/");
+        await signIn(email, password);
       } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password
-        });
-        
-        if (error) throw error;
-        
-        toast.success("Registration successful! Please check your email to verify your account.");
+        await signUp(email, password);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Authentication error:", error);
-      toast.error(error.message || "Authentication failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -58,19 +48,12 @@ export default function AuthPage() {
 
   const handleForgotPassword = async () => {
     if (!email) {
-      toast.error("Please enter your email address");
       return;
     }
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
-      
-      if (error) throw error;
-      
-      toast.success("Password reset email sent. Please check your inbox.");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to send reset email. Please try again.");
+      await resetPassword(email);
     } finally {
       setLoading(false);
     }

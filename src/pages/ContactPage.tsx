@@ -36,7 +36,7 @@ export default function ContactPage() {
     // Simulate API call
     setTimeout(() => {
       setLoading(false);
-      toast.success("Your message has been sent successfully!");
+      toast.success("Your feedback has been sent successfully!");
       
       // Reset form
       setName("");
@@ -72,7 +72,8 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 className="font-medium">Email</h3>
-                <p className="text-sm text-muted-foreground">support@stegano.example.com</p>
+                <p className="text-sm text-muted-foreground">dwarapudipavankumar05@gmail.com</p>
+                <p className="text-sm text-muted-foreground">akulaswaranjith235@gmail.com</p>
               </div>
             </div>
           </div>
@@ -120,7 +121,7 @@ export default function ContactPage() {
         <Card className="md:col-span-3">
           <form onSubmit={handleSubmit}>
             <CardHeader>
-              <CardTitle>Send a Message</CardTitle>
+              <CardTitle>Feedback</CardTitle>
               <CardDescription>
                 Fill out the form below and we'll get back to you as soon as possible.
               </CardDescription>
@@ -154,7 +155,7 @@ export default function ContactPage() {
                 <Label htmlFor="subject">Subject</Label>
                 <Input
                   id="subject"
-                  placeholder="What is your message about?"
+                  placeholder="What is your feedback about?"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                 />
@@ -180,7 +181,7 @@ export default function ContactPage() {
                     Sending...
                   </>
                 ) : (
-                  "Send Message"
+                  "Send Feedback"
                 )}
               </Button>
             </CardFooter>

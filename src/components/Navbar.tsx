@@ -1,15 +1,41 @@
 
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Menu, X } from "lucide-react";
+import { Menu, X, User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Get current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Set up auth listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
   };
 
   return (
@@ -42,6 +68,20 @@ export function Navbar() {
         
         <div className="flex items-center gap-4">
           <ThemeToggle />
+          
+          {user ? (
+            <Button variant="outline" size="sm" onClick={handleSignOut} className="hidden md:flex">
+              Sign Out
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" asChild className="hidden md:flex">
+              <Link to="/auth">
+                <User className="h-4 w-4 mr-2" />
+                Login
+              </Link>
+            </Button>
+          )}
+          
           <Button variant="default" asChild className="hidden md:flex">
             <Link to="/encrypt">Get Started</Link>
           </Button>
@@ -69,6 +109,18 @@ export function Navbar() {
           <Link to="/contact" className="px-4 py-2 hover:bg-accent rounded-md" onClick={toggleMenu}>
             Contact
           </Link>
+          {user ? (
+            <Button variant="outline" className="mt-2" onClick={() => {
+              handleSignOut();
+              toggleMenu();
+            }}>
+              Sign Out
+            </Button>
+          ) : (
+            <Link to="/auth" className="px-4 py-2 hover:bg-accent rounded-md" onClick={toggleMenu}>
+              Login
+            </Link>
+          )}
           <Button variant="default" asChild className="mt-2">
             <Link to="/encrypt" onClick={toggleMenu}>Get Started</Link>
           </Button>

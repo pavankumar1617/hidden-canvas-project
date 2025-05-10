@@ -9,7 +9,59 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      feedback: {
+        Row: {
+          email: string
+          message: string[]
+          name: string
+          subject: string
+          "time and date": string | null
+        }
+        Insert: {
+          email?: string
+          message: string[]
+          name?: string
+          subject?: string
+          "time and date"?: string | null
+        }
+        Update: {
+          email?: string
+          message?: string[]
+          name?: string
+          subject?: string
+          "time and date"?: string | null
+        }
+        Relationships: []
+      }
+      logins: {
+        Row: {
+          date: string | null
+          email: string
+          id: number
+          "mobile number": number | null
+        }
+        Insert: {
+          date?: string | null
+          email?: string
+          id?: number
+          "mobile number"?: number | null
+        }
+        Update: {
+          date?: string | null
+          email?: string
+          id?: number
+          "mobile number"?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logins_email_fkey"
+            columns: ["email"]
+            isOneToOne: true
+            referencedRelation: "logins"
+            referencedColumns: ["email"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Mail } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function ContactPage() {
   const [name, setName] = useState("");
@@ -15,7 +16,7 @@ export default function ContactPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate form fields
@@ -33,9 +34,24 @@ export default function ContactPage() {
     
     setLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      // Insert feedback into Supabase
+      const { error } = await supabase
+        .from('feedback')
+        .insert({
+          name: name,
+          email: email,
+          subject: subject,
+          message: [message], // The message column is an array in your table
+          'time and date': new Date().toISOString(),
+        });
+        
+      if (error) {
+        console.error("Error submitting feedback:", error);
+        toast.error("Failed to submit feedback. Please try again later.");
+        return;
+      }
+      
       toast.success("Your feedback has been sent successfully!");
       
       // Reset form
@@ -43,7 +59,12 @@ export default function ContactPage() {
       setEmail("");
       setSubject("");
       setMessage("");
-    }, 1000);
+    } catch (err) {
+      console.error("Error in feedback submission:", err);
+      toast.error("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
   
   return (

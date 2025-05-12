@@ -7,11 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/components/ui/sonner";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mobileNumber, setMobileNumber] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -27,6 +30,7 @@ export default function AuthPage() {
     setIsLogin(!isLogin);
     setEmail("");
     setPassword("");
+    setMobileNumber("");
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -34,13 +38,39 @@ export default function AuthPage() {
     setLoading(true);
 
     try {
+      // Validate mobile number if provided
+      if (mobileNumber && !/^\d{10}$/.test(mobileNumber)) {
+        toast.error("Please enter a valid 10-digit mobile number");
+        setLoading(false);
+        return;
+      }
+
+      // Record login attempt in logins table
+      const currentDate = new Date().toISOString().split('T')[0]; // Get current date in YYYY-MM-DD format
+
+      const { error: loginRecordError } = await supabase
+        .from('logins')
+        .insert({
+          email: email,
+          'mobile number': mobileNumber ? Number(mobileNumber) : null,
+          date: currentDate
+        });
+
+      if (loginRecordError) {
+        console.error("Error recording login attempt:", loginRecordError);
+        // Continue with auth flow even if recording fails
+      }
+
       if (isLogin) {
         await signIn(email, password);
+        toast.success("Login successful!");
       } else {
         await signUp(email, password);
+        toast.success("Account created successfully! Please check your email for verification.");
       }
     } catch (error) {
       console.error("Authentication error:", error);
+      toast.error(error instanceof Error ? error.message : "Authentication failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -48,12 +78,17 @@ export default function AuthPage() {
 
   const handleForgotPassword = async () => {
     if (!email) {
+      toast.error("Please enter your email address");
       return;
     }
 
     setLoading(true);
     try {
       await resetPassword(email);
+      toast.success("Password reset link sent to your email");
+    } catch (error) {
+      console.error("Reset password error:", error);
+      toast.error("Failed to send reset link. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -92,6 +127,17 @@ export default function AuthPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="mobileNumber">Mobile Number (optional)</Label>
+                <Input
+                  id="mobileNumber"
+                  type="tel"
+                  placeholder="10-digit mobile number"
+                  value={mobileNumber}
+                  onChange={(e) => setMobileNumber(e.target.value)}
                 />
               </div>
               

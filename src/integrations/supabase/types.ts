@@ -31,7 +31,15 @@ export type Database = {
           subject?: string
           "time and date"?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "feedback_email_fkey"
+            columns: ["email"]
+            isOneToOne: true
+            referencedRelation: "feedback"
+            referencedColumns: ["email"]
+          },
+        ]
       }
       logins: {
         Row: {
@@ -61,6 +69,30 @@ export type Database = {
             referencedColumns: ["email"]
           },
         ]
+      }
+      table_name: {
+        Row: {
+          data: Json | null
+          id: number
+          inserted_at: string
+          name: string | null
+          updated_at: string
+        }
+        Insert: {
+          data?: Json | null
+          id?: number
+          inserted_at?: string
+          name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          data?: Json | null
+          id?: number
+          inserted_at?: string
+          name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {

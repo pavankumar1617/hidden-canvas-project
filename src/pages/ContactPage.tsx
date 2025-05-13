@@ -49,6 +49,14 @@ export default function ContactPage() {
       // Format current timestamp
       const timestamp = new Date().toISOString();
       
+      console.log("Submitting feedback:", {
+        name,
+        email,
+        subject: subject || "General Feedback",
+        message: [message], 
+        'time and date': timestamp,
+      });
+      
       // Insert feedback into Supabase
       const { error } = await supabase
         .from('feedback')

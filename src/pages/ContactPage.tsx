@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Mail } from "lucide-react";
+import { Loader2, Mail, Check, X } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -16,52 +16,70 @@ export default function ContactPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   
+  const resetForm = () => {
+    setName("");
+    setEmail("");
+    setSubject("");
+    setMessage("");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate form fields
     if (!name || !email || !message) {
-      toast.error("Please fill out all required fields.");
+      toast.error("Please fill out all required fields.", {
+        icon: <X className="h-4 w-4" />
+      });
       return;
     }
     
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      toast.error("Please enter a valid email address.");
+      toast.error("Please enter a valid email address.", {
+        icon: <X className="h-4 w-4" />
+      });
       return;
     }
     
     setLoading(true);
     
     try {
+      // Format current timestamp
+      const timestamp = new Date().toISOString();
+      
       // Insert feedback into Supabase
       const { error } = await supabase
         .from('feedback')
         .insert({
           name: name,
           email: email,
-          subject: subject,
+          subject: subject || "General Feedback", // Default subject if none provided
           message: [message], // The message column is an array in your table
-          'time and date': new Date().toISOString(),
+          'time and date': timestamp,
         });
         
       if (error) {
         console.error("Error submitting feedback:", error);
-        toast.error("Failed to submit feedback. Please try again later.");
+        toast.error("Failed to submit feedback. Please try again later.", {
+          icon: <X className="h-4 w-4" />
+        });
         return;
       }
       
-      toast.success("Your feedback has been sent successfully!");
+      // Show success message
+      toast.success("✅ Thank you for your feedback!", {
+        icon: <Check className="h-4 w-4" />
+      });
       
       // Reset form
-      setName("");
-      setEmail("");
-      setSubject("");
-      setMessage("");
+      resetForm();
     } catch (err) {
       console.error("Error in feedback submission:", err);
-      toast.error("An unexpected error occurred. Please try again.");
+      toast.error("An unexpected error occurred. Please try again.", {
+        icon: <X className="h-4 w-4" />
+      });
     } finally {
       setLoading(false);
     }

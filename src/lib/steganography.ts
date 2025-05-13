@@ -200,3 +200,39 @@ export function downloadFile(file: File): void {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// New function to generate a unique filename
+export function generateUniqueFileName(originalName: string): string {
+  const timestamp = Date.now();
+  const randomStr = Math.random().toString(36).substring(2, 8);
+  
+  // Extract file extension
+  const extension = originalName.split('.').pop() || '';
+  const baseName = originalName.split('.').slice(0, -1).join('.');
+  
+  return `hidden_message_${timestamp}_${randomStr}.${extension}`;
+}
+
+// New function to upload file to Supabase storage and get public URL
+export async function uploadToSupabase(file: File): Promise<string> {
+  const { supabase } = await import('@/integrations/supabase/client');
+  const uniqueFileName = generateUniqueFileName(file.name);
+  
+  const { data, error } = await supabase.storage
+    .from('encrypted_files')
+    .upload(uniqueFileName, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+    
+  if (error) {
+    throw new Error(`Upload failed: ${error.message}`);
+  }
+  
+  // Get public URL
+  const { data: publicUrlData } = supabase.storage
+    .from('encrypted_files')
+    .getPublicUrl(uniqueFileName);
+    
+  return publicUrlData.publicUrl;
+}

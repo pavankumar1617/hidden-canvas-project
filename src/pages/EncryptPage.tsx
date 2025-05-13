@@ -6,18 +6,41 @@ import { Label } from "@/components/ui/label";
 import { FileUpload } from "@/components/FileUpload";
 import { PasswordInput } from "@/components/PasswordInput";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Download, ArrowRight } from "lucide-react";
-import { fileToArrayBuffer, hideMessage, arrayBufferToFile, downloadFile } from "@/lib/steganography";
+import { Loader2, Download, ArrowRight, Share2, Link } from "lucide-react";
+import { 
+  fileToArrayBuffer, 
+  hideMessage, 
+  arrayBufferToFile, 
+  downloadFile,
+  uploadToSupabase,
+  generateUniqueFileName
+} from "@/lib/steganography";
 import { toast } from "@/components/ui/sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 export default function EncryptPage() {
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [processedFile, setProcessedFile] = useState<File | null>(null);
+  const [publicUrl, setPublicUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   
   const handleFileSelected = (selectedFile: File) => {
     setFile(selectedFile);
+    // Reset states when new file is selected
+    setProcessedFile(null);
+    setPublicUrl(null);
   };
   
   const handleEncrypt = async () => {
@@ -51,8 +74,11 @@ export default function EncryptPage() {
       });
       
       // Create a new file with the modified data
-      const fileName = `stegano-${file.name}`;
+      const fileName = generateUniqueFileName(file.name);
       const resultFile = arrayBufferToFile(resultData.buffer, fileName, file.type);
+      
+      // Store the processed file
+      setProcessedFile(resultFile);
       
       // Download the file
       downloadFile(resultFile);
@@ -63,6 +89,54 @@ export default function EncryptPage() {
       toast.error("Failed to hide your message. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const handleShareFile = async () => {
+    if (!processedFile) {
+      toast.error("Please encrypt a message first");
+      return;
+    }
+    
+    setIsUploading(true);
+    
+    try {
+      // Upload to Supabase storage
+      const url = await uploadToSupabase(processedFile);
+      setPublicUrl(url);
+      toast.success("File uploaded and ready to share!");
+    } catch (error) {
+      console.error("Upload failed:", error);
+      toast.error("Failed to upload file for sharing. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+  
+  const copyShareLink = () => {
+    if (publicUrl) {
+      navigator.clipboard.writeText(publicUrl);
+      toast.success("Share link copied to clipboard!");
+    }
+  };
+  
+  const handleShare = async () => {
+    if (publicUrl) {
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "Hidden Message",
+            text: "I've shared a hidden message with you",
+            url: publicUrl
+          });
+          toast.success("Shared successfully!");
+        } catch (error) {
+          console.error("Sharing failed:", error);
+          copyShareLink();
+        }
+      } else {
+        copyShareLink();
+      }
     }
   };
   
@@ -118,6 +192,90 @@ export default function EncryptPage() {
               You'll need this password to reveal the message later.
             </p>
           </div>
+
+          {processedFile && (
+            <div className="rounded-md bg-muted p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium">File processed successfully</h4>
+                  <p className="text-sm text-muted-foreground">{processedFile.name}</p>
+                </div>
+                <div className="flex space-x-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => downloadFile(processedFile)}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download
+                  </Button>
+                  
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleShareFile}
+                        disabled={isUploading}
+                      >
+                        {isUploading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Uploading
+                          </>
+                        ) : (
+                          <>
+                            <Share2 className="mr-2 h-4 w-4" />
+                            Share
+                          </>
+                        )}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Share Your Encrypted File</DialogTitle>
+                        <DialogDescription>
+                          Copy the link below or use the share button to share your encrypted file.
+                        </DialogDescription>
+                      </DialogHeader>
+                      {publicUrl ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center space-x-2">
+                            <Input 
+                              value={publicUrl} 
+                              readOnly 
+                              className="flex-1"
+                            />
+                            <Button 
+                              variant="outline" 
+                              onClick={copyShareLink}
+                              type="button"
+                            >
+                              <Link className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="flex justify-between">
+                            <DialogClose asChild>
+                              <Button variant="outline">Close</Button>
+                            </DialogClose>
+                            <Button onClick={handleShare}>
+                              Share Now
+                              <Share2 className="ml-2 h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center p-6">
+                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                          <p className="ml-2">Preparing share link...</p>
+                        </div>
+                      )}
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex justify-between">
           <Button variant="outline" onClick={() => window.history.back()}>

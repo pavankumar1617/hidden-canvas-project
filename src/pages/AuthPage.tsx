@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,11 +20,12 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const { signIn, signUp, resetPassword, user } = useAuth();
 
-  // If user is already logged in, redirect to home page
-  if (user) {
-    navigate("/");
-    return null;
-  }
+  useEffect(() => {
+    // If user is already logged in, redirect to home page
+    if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
 
   const toggleView = () => {
     setIsLogin(!isLogin);
@@ -35,6 +36,12 @@ export default function AuthPage() {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!email || !password) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -45,32 +52,37 @@ export default function AuthPage() {
         return;
       }
 
-      // Record login attempt in logins table
-      const currentDate = new Date().toISOString().split('T')[0]; // Get current date in YYYY-MM-DD format
-
-      const { error: loginRecordError } = await supabase
-        .from('logins')
-        .insert({
-          email: email,
-          'mobile number': mobileNumber ? Number(mobileNumber) : null,
-          date: currentDate
-        });
-
-      if (loginRecordError) {
-        console.error("Error recording login attempt:", loginRecordError);
-        // Continue with auth flow even if recording fails
-      }
-
       if (isLogin) {
+        // Login flow
         await signIn(email, password);
-        toast.success("Login successful!");
       } else {
+        // Registration flow
         await signUp(email, password);
-        toast.success("Account created successfully! Please check your email for verification.");
+        
+        // Only record login attempt if signup was successful
+        const currentDate = new Date().toISOString().split('T')[0]; // Get current date in YYYY-MM-DD format
+        
+        try {
+          const { error: loginRecordError } = await supabase
+            .from('logins')
+            .insert({
+              email: email,
+              'mobile number': mobileNumber ? Number(mobileNumber) : null,
+              date: currentDate
+            });
+
+          if (loginRecordError) {
+            console.error("Error recording login attempt:", loginRecordError);
+            // Continue even if recording fails
+          }
+        } catch (error) {
+          console.error("Error recording login data:", error);
+          // Don't show this error to the user as it's not critical
+        }
       }
     } catch (error) {
-      console.error("Authentication error:", error);
-      toast.error(error instanceof Error ? error.message : "Authentication failed. Please try again.");
+      // Errors are already handled in the Auth context
+      console.error("Authentication handling error:", error);
     } finally {
       setLoading(false);
     }

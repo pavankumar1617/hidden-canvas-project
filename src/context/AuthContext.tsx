@@ -46,6 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log("Auth state changed:", event, session);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -58,6 +59,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Initial session check:", session);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -81,15 +83,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Continue even if this fails
       }
       
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       
-      toast.success("Successfully logged in!");
-      navigate("/");
+      if (error) {
+        console.error("Login error:", error);
+        if (error.message.includes("Invalid login")) {
+          toast.error("Incorrect email or password");
+        } else if (error.message.includes("Email not confirmed")) {
+          toast.error("Please verify your email before logging in");
+        } else {
+          toast.error(error.message || "Failed to sign in. Please check your credentials.");
+        }
+        throw error;
+      }
+      
+      if (data && data.user) {
+        toast.success("Successfully logged in!");
+        navigate("/");
+      }
     } catch (error: any) {
       console.error("Login error:", error);
-      toast.error(error.message || "Failed to sign in. Please check your credentials.");
-      throw error;
+      // Error is already handled above
     } finally {
       setLoading(false);
     }
@@ -101,14 +115,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Clean up existing auth state
       cleanupAuthState();
       
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
+      // Check if user exists first to provide better error messages
+      const { data: existingUser } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password: "dummy-password-to-check-if-user-exists" 
+      }).catch(() => ({ data: null }));
+      
+      if (existingUser?.user) {
+        toast.error("An account with this email already exists. Please log in instead.");
+        return;
+      }
+      
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      
+      if (error) {
+        console.error("Signup error:", error);
+        toast.error(error.message || "Failed to sign up. Please try again.");
+        throw error;
+      }
       
       toast.success("Registration successful! Please check your email to verify your account.");
     } catch (error: any) {
       console.error("Signup error:", error);
-      toast.error(error.message || "Failed to sign up. Please try again.");
-      throw error;
+      // Error is already handled above
     } finally {
       setLoading(false);
     }

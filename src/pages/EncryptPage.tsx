@@ -66,7 +66,7 @@ export default function EncryptPage() {
       const arrayBuffer = await fileToArrayBuffer(file);
       const imageData = new Uint8Array(arrayBuffer);
       
-      // Hide the message in the image
+      // Hide the message in the image with AES encryption
       const resultData = await hideMessage({
         imageData,
         message,
@@ -83,7 +83,7 @@ export default function EncryptPage() {
       // Download the file
       downloadFile(resultFile);
       
-      toast.success("Your message has been hidden successfully!");
+      toast.success("Your message has been securely hidden with AES encryption!");
     } catch (error) {
       console.error("Encryption failed:", error);
       toast.error("Failed to hide your message. Please try again.");

@@ -1,6 +1,7 @@
-
 // This is a simplified steganography implementation
 // In a real application, you'd want to use a more robust algorithm
+
+import CryptoJS from 'crypto-js';
 
 export interface EncryptOptions {
   imageData: Uint8Array;
@@ -13,23 +14,25 @@ export interface DecryptOptions {
   password: string;
 }
 
-// Basic XOR encryption for the message
+// AES encryption for the message
 function encryptMessage(message: string, password: string): string {
-  const messageChars = message.split('');
-  const passwordChars = password.split('');
-  
-  return messageChars
-    .map((char, i) => {
-      const passwordChar = passwordChars[i % passwordChars.length];
-      return String.fromCharCode(char.charCodeAt(0) ^ passwordChar.charCodeAt(0));
-    })
-    .join('');
+  return CryptoJS.AES.encrypt(message, password).toString();
 }
 
-// Basic XOR decryption for the message
+// AES decryption for the message
 function decryptMessage(encryptedMessage: string, password: string): string {
-  // XOR is symmetric, so we can use the same function for decryption
-  return encryptMessage(encryptedMessage, password);
+  try {
+    const bytes = CryptoJS.AES.decrypt(encryptedMessage, password);
+    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+    
+    if (!decrypted) {
+      throw new Error("Wrong password");
+    }
+    
+    return decrypted;
+  } catch (error) {
+    throw new Error("Wrong password");
+  }
 }
 
 // Convert text to binary
@@ -133,7 +136,7 @@ function extractDataFromImage(imageData: Uint8Array): string {
 export async function hideMessage(options: EncryptOptions): Promise<Uint8Array> {
   const { imageData, message, password } = options;
   
-  // Encrypt the message with the password
+  // Encrypt the message with the password using AES
   const encryptedMessage = encryptMessage(message, password);
   
   // Convert the encrypted message to binary
@@ -201,7 +204,7 @@ export function downloadFile(file: File): void {
   URL.revokeObjectURL(url);
 }
 
-// New function to generate a unique filename
+// Function to generate a unique filename
 export function generateUniqueFileName(originalName: string): string {
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 8);
@@ -213,7 +216,7 @@ export function generateUniqueFileName(originalName: string): string {
   return `hidden_message_${timestamp}_${randomStr}.${extension}`;
 }
 
-// New function to upload file to Supabase storage and get public URL
+// Function to upload file to Supabase storage and get public URL
 export async function uploadToSupabase(file: File): Promise<string> {
   const { supabase } = await import('@/integrations/supabase/client');
   const uniqueFileName = generateUniqueFileName(file.name);

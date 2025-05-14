@@ -51,7 +51,11 @@ export default function DecryptPage() {
     } catch (error) {
       console.error("Decryption failed:", error);
       if (error instanceof Error) {
-        toast.error(error.message);
+        if (error.message === "Wrong password") {
+          toast.error("Wrong password. Please try again.");
+        } else {
+          toast.error(error.message);
+        }
       } else {
         toast.error("Failed to reveal hidden message. Please check your password.");
       }

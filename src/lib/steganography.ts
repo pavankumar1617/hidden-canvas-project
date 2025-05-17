@@ -1,4 +1,3 @@
-
 // This is a simplified steganography implementation
 // In a real application, you'd want to use a more robust algorithm
 
@@ -20,19 +19,21 @@ function encryptMessage(message: string, password: string): string {
   return CryptoJS.AES.encrypt(message, password).toString();
 }
 
-// AES decryption for the message
+// AES decryption for the message with improved error handling
 function decryptMessage(encryptedMessage: string, password: string): string {
   try {
     const bytes = CryptoJS.AES.decrypt(encryptedMessage, password);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
     
+    // Check if decryption resulted in a valid UTF-8 string
     if (!decrypted) {
-      throw new Error("Wrong password");
+      throw new Error("Incorrect password");
     }
     
     return decrypted;
   } catch (error) {
-    throw new Error("Wrong password");
+    // Capture any decryption errors and standardize the error message
+    throw new Error("Incorrect password");
   }
 }
 

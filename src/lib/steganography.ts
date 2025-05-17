@@ -1,3 +1,4 @@
+
 // This is a simplified steganography implementation
 // In a real application, you'd want to use a more robust algorithm
 

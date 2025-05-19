@@ -8,6 +8,7 @@ export interface EncryptOptions {
   imageData: Uint8Array;
   message: string;
   password: string;
+  imageType: string;
 }
 
 export interface DecryptOptions {
@@ -56,22 +57,32 @@ function binaryToText(binary: string): string {
     .join('');
 }
 
+// Calculate if the image has enough capacity for the data
+function calculateCapacity(imageData: Uint8Array, binaryDataLength: number): boolean {
+  // For RGB channels (skip alpha), we can store 3 bits per pixel (in RGBA format)
+  // Image header size (128 bytes) + 32 bits for length
+  const availableBits = Math.floor(imageData.length * 0.75) - 128 - 32;
+  return availableBits >= binaryDataLength;
+}
+
 // Embed binary data into the LSB of an image
 function embedDataInImage(imageData: Uint8Array, binaryData: string): Uint8Array {
+  // Verify we have enough space in the image
+  if (!calculateCapacity(imageData, binaryData.length)) {
+    throw new Error("The image is too small to store this message. Please use a larger image or reduce your message size.");
+  }
+  
   // Create a copy of the image data to avoid modifying the original
   const newImageData = new Uint8Array(imageData);
   const prefix = textToBinary("STEG:"); // Prefix to identify steganography
   const binaryToEmbed = prefix + binaryData;
-  
-  // We use RGB channels (skipping alpha) in every 4th byte
-  let dataIndex = 0;
   
   // First, embed the length of the message (32 bits)
   const length = binaryToEmbed.length;
   const lengthBinary = length.toString(2).padStart(32, '0');
   
   for (let i = 0; i < 32; i++) {
-    // Use only the R channel for length
+    // Use only the R channel for length in the header area
     const byte = 4 * i;
     if (byte < newImageData.length) {
       // Clear the LSB and set it to the bit from the length
@@ -79,10 +90,11 @@ function embedDataInImage(imageData: Uint8Array, binaryData: string): Uint8Array
     }
   }
   
-  // Then, embed the actual data
+  // Then, embed the actual data - start after the header (128 bytes)
+  const dataStartOffset = 128;
   for (let i = 0; i < binaryToEmbed.length; i++) {
     // Skip alpha channel (every 4th byte)
-    const pixelIndex = 128 + Math.floor(i / 3) * 4;
+    const pixelIndex = dataStartOffset + Math.floor(i / 3) * 4;
     const channelOffset = i % 3;
     const byteIndex = pixelIndex + channelOffset;
     
@@ -114,10 +126,11 @@ function extractDataFromImage(imageData: Uint8Array): string {
     throw new Error("Invalid or no steganographic data found");
   }
   
-  // Extract the data bits
+  // Extract the data bits - start after the header (128 bytes)
+  const dataStartOffset = 128;
   let extractedBinary = '';
   for (let i = 0; i < length; i++) {
-    const pixelIndex = 128 + Math.floor(i / 3) * 4;
+    const pixelIndex = dataStartOffset + Math.floor(i / 3) * 4;
     const channelOffset = i % 3;
     const byteIndex = pixelIndex + channelOffset;
     
@@ -137,7 +150,7 @@ function extractDataFromImage(imageData: Uint8Array): string {
 
 // Hide message in an image
 export async function hideMessage(options: EncryptOptions): Promise<Uint8Array> {
-  const { imageData, message, password } = options;
+  const { imageData, message, password, imageType } = options;
   
   // Encrypt the message with the password using AES
   const encryptedMessage = encryptMessage(message, password);
@@ -145,8 +158,15 @@ export async function hideMessage(options: EncryptOptions): Promise<Uint8Array> 
   // Convert the encrypted message to binary
   const binaryData = textToBinary(encryptedMessage);
   
-  // Embed the binary data in the image
-  return embedDataInImage(imageData, binaryData);
+  try {
+    // Embed the binary data in the image
+    return embedDataInImage(imageData, binaryData);
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("Failed to embed message in image");
+  }
 }
 
 // Reveal message from an image

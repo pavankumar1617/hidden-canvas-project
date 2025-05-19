@@ -17,13 +17,19 @@ export default function DecryptPage() {
   const [revealedMessage, setRevealedMessage] = useState<string | null>(null);
   
   const handleFileSelected = (selectedFile: File) => {
+    // Check if the file is an image
+    if (!selectedFile.type.startsWith('image/')) {
+      toast.error("Please upload an image file");
+      return;
+    }
+    
     setFile(selectedFile);
     setRevealedMessage(null);
   };
   
   const handleDecrypt = async () => {
     if (!file) {
-      toast.error("Please upload a file");
+      toast.error("Please upload an image file");
       return;
     }
     
@@ -53,6 +59,8 @@ export default function DecryptPage() {
       if (error instanceof Error) {
         if (error.message === "Incorrect password") {
           toast.error("Incorrect password. Please try again.");
+        } else if (error.message === "No steganographic data found in this image") {
+          toast.error("This image doesn't contain any hidden message.");
         } else {
           toast.error(error.message);
         }

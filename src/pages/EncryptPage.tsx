@@ -66,11 +66,22 @@ export default function EncryptPage() {
       const arrayBuffer = await fileToArrayBuffer(file);
       const imageData = new Uint8Array(arrayBuffer);
       
+      // Check if the file is too small for the message
+      const messageSize = message.length;
+      const requiredBytes = messageSize * 8 * 3; // Each character is 8 bits, and we need 3 pixels per bit
+      
+      if (requiredBytes > imageData.length * 0.75) { // Using 75% of image capacity
+        toast.error("The image is too small for your message. Please use a larger image or reduce your message length.");
+        setLoading(false);
+        return;
+      }
+      
       // Hide the message in the image with AES encryption
       const resultData = await hideMessage({
         imageData,
         message,
         password,
+        imageType: file.type
       });
       
       // Create a new file with the modified data
@@ -83,10 +94,14 @@ export default function EncryptPage() {
       // Download the file
       downloadFile(resultFile);
       
-      toast.success("Your message has been securely hidden with AES encryption!");
+      toast.success("Your message has been securely hidden in the image!");
     } catch (error) {
       console.error("Encryption failed:", error);
-      toast.error("Failed to hide your message. Please try again.");
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Failed to hide your message. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

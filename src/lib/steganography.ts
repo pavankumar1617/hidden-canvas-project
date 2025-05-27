@@ -1,7 +1,3 @@
-
-// This is a simplified steganography implementation
-// In a real application, you'd want to use a more robust algorithm
-
 import CryptoJS from 'crypto-js';
 
 export interface EncryptOptions {
@@ -27,14 +23,12 @@ function decryptMessage(encryptedMessage: string, password: string): string {
     const bytes = CryptoJS.AES.decrypt(encryptedMessage, password);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
     
-    // Check if decryption resulted in a valid UTF-8 string
     if (!decrypted) {
       throw new Error("Incorrect password");
     }
     
     return decrypted;
   } catch (error) {
-    // Capture any decryption errors and standardize the error message
     throw new Error("Incorrect password");
   }
 }
@@ -59,65 +53,108 @@ function binaryToText(binary: string): string {
 
 // Calculate if the image has enough capacity for the data
 function calculateCapacity(imageData: Uint8Array, binaryDataLength: number): boolean {
-  // For RGB channels (skip alpha), we can store 3 bits per pixel (in RGBA format)
-  // Image header size (128 bytes) + 32 bits for length
   const availableBits = Math.floor(imageData.length * 0.75) - 128 - 32;
   return availableBits >= binaryDataLength;
 }
 
-// Embed binary data into the LSB of an image
-function embedDataInImage(imageData: Uint8Array, binaryData: string): Uint8Array {
-  // Verify we have enough space in the image
-  if (!calculateCapacity(imageData, binaryData.length)) {
+// Convert image data to canvas and get image dimensions
+function createCanvasFromImageData(imageData: Uint8Array, imageType: string): Promise<{ canvas: HTMLCanvasElement, width: number, height: number }> {
+  return new Promise((resolve, reject) => {
+    const blob = new Blob([imageData], { type: imageType });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+      
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      
+      URL.revokeObjectURL(url);
+      resolve({ canvas, width: img.width, height: img.height });
+    };
+    
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Failed to load image'));
+    };
+    
+    img.src = url;
+  });
+}
+
+// Embed binary data into canvas image data
+function embedDataInCanvas(canvas: HTMLCanvasElement, binaryData: string): void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Could not get canvas context');
+  }
+  
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  
+  const prefix = textToBinary("STEG:");
+  const binaryToEmbed = prefix + binaryData;
+  
+  // Verify we have enough space
+  if (!calculateCapacity(data, binaryToEmbed.length)) {
     throw new Error("The image is too small to store this message. Please use a larger image or reduce your message size.");
   }
   
-  // Create a copy of the image data to avoid modifying the original
-  const newImageData = new Uint8Array(imageData);
-  const prefix = textToBinary("STEG:"); // Prefix to identify steganography
-  const binaryToEmbed = prefix + binaryData;
-  
-  // First, embed the length of the message (32 bits)
+  // Embed the length of the message (32 bits) in the first 32 pixels
   const length = binaryToEmbed.length;
   const lengthBinary = length.toString(2).padStart(32, '0');
   
   for (let i = 0; i < 32; i++) {
-    // Use only the R channel for length in the header area
-    const byte = 4 * i;
-    if (byte < newImageData.length) {
-      // Clear the LSB and set it to the bit from the length
-      newImageData[byte] = (newImageData[byte] & 0xFE) | parseInt(lengthBinary[i]);
+    const pixelIndex = i * 4; // RGBA format
+    if (pixelIndex < data.length) {
+      // Use red channel for length data
+      data[pixelIndex] = (data[pixelIndex] & 0xFE) | parseInt(lengthBinary[i]);
     }
   }
   
-  // Then, embed the actual data - start after the header (128 bytes)
-  const dataStartOffset = 128;
+  // Embed the actual data starting from pixel 32
+  const dataStartOffset = 32 * 4; // Start after length data
   for (let i = 0; i < binaryToEmbed.length; i++) {
-    // Skip alpha channel (every 4th byte)
+    // Use RGB channels (skip alpha), cycling through them
     const pixelIndex = dataStartOffset + Math.floor(i / 3) * 4;
-    const channelOffset = i % 3;
+    const channelOffset = i % 3; // 0=R, 1=G, 2=B
     const byteIndex = pixelIndex + channelOffset;
     
-    if (byteIndex < newImageData.length) {
-      // Clear the LSB and set it to the data bit
-      newImageData[byteIndex] = (newImageData[byteIndex] & 0xFE) | parseInt(binaryToEmbed[i]);
+    if (byteIndex < data.length) {
+      data[byteIndex] = (data[byteIndex] & 0xFE) | parseInt(binaryToEmbed[i]);
     } else {
-      console.warn("Not enough space in the image to store the message");
-      break;
+      throw new Error("Not enough space in the image to store the message");
     }
   }
   
-  return newImageData;
+  // Put the modified image data back to canvas
+  ctx.putImageData(imageData, 0, 0);
 }
 
-// Extract binary data from the LSB of an image
-function extractDataFromImage(imageData: Uint8Array): string {
-  // Extract the length first (32 bits)
+// Extract binary data from canvas image data
+function extractDataFromCanvas(canvas: HTMLCanvasElement): string {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Could not get canvas context');
+  }
+  
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  
+  // Extract the length first (32 bits from first 32 pixels)
   let lengthBinary = '';
   for (let i = 0; i < 32; i++) {
-    const byte = 4 * i;
-    if (byte < imageData.length) {
-      lengthBinary += (imageData[byte] & 1).toString();
+    const pixelIndex = i * 4;
+    if (pixelIndex < data.length) {
+      lengthBinary += (data[pixelIndex] & 1).toString();
     }
   }
   
@@ -126,16 +163,16 @@ function extractDataFromImage(imageData: Uint8Array): string {
     throw new Error("Invalid or no steganographic data found");
   }
   
-  // Extract the data bits - start after the header (128 bytes)
-  const dataStartOffset = 128;
+  // Extract the data bits
+  const dataStartOffset = 32 * 4;
   let extractedBinary = '';
   for (let i = 0; i < length; i++) {
     const pixelIndex = dataStartOffset + Math.floor(i / 3) * 4;
     const channelOffset = i % 3;
     const byteIndex = pixelIndex + channelOffset;
     
-    if (byteIndex < imageData.length) {
-      extractedBinary += (imageData[byteIndex] & 1).toString();
+    if (byteIndex < data.length) {
+      extractedBinary += (data[byteIndex] & 1).toString();
     }
   }
   
@@ -148,25 +185,46 @@ function extractDataFromImage(imageData: Uint8Array): string {
   return extractedBinary.slice(prefix.length);
 }
 
+// Convert canvas to file with proper format
+function canvasToFile(canvas: HTMLCanvasElement, fileName: string, outputFormat: string = 'image/png'): Promise<File> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error('Failed to convert canvas to blob'));
+        return;
+      }
+      
+      // Determine file extension
+      const extension = outputFormat === 'image/jpeg' ? '.jpg' : '.png';
+      const finalFileName = fileName.replace(/\.[^/.]+$/, '') + extension;
+      
+      const file = new File([blob], finalFileName, { type: outputFormat });
+      resolve(file);
+    }, outputFormat, 0.9); // High quality for JPEG
+  });
+}
+
 // Hide message in an image
 export async function hideMessage(options: EncryptOptions): Promise<Uint8Array> {
   const { imageData, message, password, imageType } = options;
   
-  // Encrypt the message with the password using AES
+  // Encrypt the message
   const encryptedMessage = encryptMessage(message, password);
-  
-  // Convert the encrypted message to binary
   const binaryData = textToBinary(encryptedMessage);
   
-  try {
-    // Embed the binary data in the image
-    return embedDataInImage(imageData, binaryData);
-  } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error("Failed to embed message in image");
-  }
+  // Create canvas from image data
+  const { canvas } = await createCanvasFromImageData(imageData, imageType);
+  
+  // Embed data in canvas
+  embedDataInCanvas(canvas, binaryData);
+  
+  // Convert canvas back to file data
+  const outputFormat = imageType.includes('jpeg') || imageType.includes('jpg') ? 'image/jpeg' : 'image/png';
+  const resultFile = await canvasToFile(canvas, 'encrypted_image', outputFormat);
+  
+  // Convert file to Uint8Array
+  const arrayBuffer = await fileToArrayBuffer(resultFile);
+  return new Uint8Array(arrayBuffer);
 }
 
 // Reveal message from an image
@@ -174,13 +232,15 @@ export async function revealMessage(options: DecryptOptions): Promise<string> {
   const { imageData, password } = options;
   
   try {
-    // Extract binary data from the image
-    const extractedBinary = extractDataFromImage(imageData);
+    // Create canvas from image data
+    const blob = new Blob([imageData]);
+    const { canvas } = await createCanvasFromImageData(imageData, 'image/png');
     
-    // Convert binary to text
+    // Extract binary data from canvas
+    const extractedBinary = extractDataFromCanvas(canvas);
+    
+    // Convert binary to text and decrypt
     const encryptedMessage = binaryToText(extractedBinary);
-    
-    // Decrypt the message with the password
     return decryptMessage(encryptedMessage, password);
   } catch (error) {
     if (error instanceof Error) {
@@ -206,25 +266,39 @@ export function fileToArrayBuffer(file: File): Promise<ArrayBuffer> {
   });
 }
 
-// Helper function to convert array buffer to file
+// Helper function to convert array buffer to file with proper format
 export function arrayBufferToFile(
   buffer: ArrayBuffer,
   fileName: string,
   fileType: string
 ): File {
-  return new File([buffer], fileName, { type: fileType });
+  // Ensure proper file extension
+  let finalFileName = fileName;
+  const extension = fileType.includes('jpeg') || fileType.includes('jpg') ? '.jpg' : '.png';
+  
+  if (!finalFileName.endsWith(extension)) {
+    finalFileName = finalFileName.replace(/\.[^/.]+$/, '') + extension;
+  }
+  
+  return new File([buffer], finalFileName, { type: fileType });
 }
 
-// Helper function to download a file
+// Enhanced download function with proper MIME type handling
 export function downloadFile(file: File): void {
   const url = URL.createObjectURL(file);
   const a = document.createElement("a");
   a.href = url;
   a.download = file.name;
+  a.style.display = 'none';
+  
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  
+  // Clean up
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 100);
 }
 
 // Function to generate a unique filename
@@ -232,7 +306,6 @@ export function generateUniqueFileName(originalName: string): string {
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 8);
   
-  // Extract file extension
   const extension = originalName.split('.').pop() || '';
   const baseName = originalName.split('.').slice(0, -1).join('.');
   
@@ -255,7 +328,6 @@ export async function uploadToSupabase(file: File): Promise<string> {
     throw new Error(`Upload failed: ${error.message}`);
   }
   
-  // Get public URL
   const { data: publicUrlData } = supabase.storage
     .from('encrypted_files')
     .getPublicUrl(uniqueFileName);

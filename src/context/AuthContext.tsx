@@ -54,6 +54,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(null);
           setSession(null);
         }
+        
+        // Handle email confirmation
+        if (event === 'SIGNED_IN' && session?.user) {
+          // Check if this is coming from email verification
+          if (window.location.pathname === '/verify') {
+            // Let the verification page handle the success message
+            return;
+          }
+          
+          if (!session.user.email_confirmed_at) {
+            toast.info("Please check your email and click the verification link to complete your registration");
+          }
+        }
       }
     );
 
@@ -90,7 +103,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (error.message.includes("Invalid login")) {
           toast.error("Incorrect email or password");
         } else if (error.message.includes("Email not confirmed")) {
-          toast.error("Please verify your email before logging in");
+          toast.error("Please verify your email before logging in. Check your inbox for the verification link.");
         } else {
           toast.error(error.message || "Failed to sign in. Please check your credentials.");
         }
@@ -98,6 +111,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       if (data && data.user) {
+        // Check if email is verified
+        if (!data.user.email_confirmed_at) {
+          toast.error("Please verify your email before logging in. Check your inbox for the verification link.");
+          await supabase.auth.signOut();
+          return;
+        }
+        
         toast.success("Successfully logged in!");
         navigate("/");
       }
@@ -115,26 +135,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Clean up existing auth state
       cleanupAuthState();
       
-      // Check if user exists first to provide better error messages
-      const { data: existingUser } = await supabase.auth.signInWithPassword({ 
+      const { data, error } = await supabase.auth.signUp({ 
         email, 
-        password: "dummy-password-to-check-if-user-exists" 
-      }).catch(() => ({ data: null }));
-      
-      if (existingUser?.user) {
-        toast.error("An account with this email already exists. Please log in instead.");
-        return;
-      }
-      
-      const { data, error } = await supabase.auth.signUp({ email, password });
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/verify`
+        }
+      });
       
       if (error) {
         console.error("Signup error:", error);
-        toast.error(error.message || "Failed to sign up. Please try again.");
+        if (error.message.includes("User already registered")) {
+          toast.error("An account with this email already exists. Please log in instead.");
+        } else {
+          toast.error(error.message || "Failed to sign up. Please try again.");
+        }
         throw error;
       }
       
-      toast.success("Registration successful! Please check your email to verify your account.");
+      if (data.user && !data.user.email_confirmed_at) {
+        toast.success("Registration successful! Please check your email and click the verification link to complete your account setup.");
+      } else if (data.user && data.user.email_confirmed_at) {
+        toast.success("Registration successful! You can now log in.");
+      }
     } catch (error: any) {
       console.error("Signup error:", error);
       // Error is already handled above
@@ -166,7 +189,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const resetPassword = async (email: string) => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth`
+      });
       if (error) throw error;
       toast.success("Password reset email sent. Please check your inbox.");
     } catch (error: any) {

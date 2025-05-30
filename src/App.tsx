@@ -15,6 +15,7 @@ import DecryptPage from "./pages/DecryptPage";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
 import AuthPage from "./pages/AuthPage";
+import VerificationConfirmationPage from "./pages/VerificationConfirmationPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/verify" element={<VerificationConfirmationPage />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>

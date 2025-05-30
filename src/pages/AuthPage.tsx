@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
@@ -17,6 +18,7 @@ export default function AuthPage() {
   const [mobileNumber, setMobileNumber] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
   const navigate = useNavigate();
   const { signIn, signUp, resetPassword, user } = useAuth();
 
@@ -32,6 +34,7 @@ export default function AuthPage() {
     setEmail("");
     setPassword("");
     setMobileNumber("");
+    setSignupSuccess(false);
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -58,6 +61,9 @@ export default function AuthPage() {
       } else {
         // Registration flow
         await signUp(email, password);
+        
+        // If signup was successful, show success state
+        setSignupSuccess(true);
         
         // Only record login attempt if signup was successful
         const currentDate = new Date().toISOString().split('T')[0]; // Get current date in YYYY-MM-DD format
@@ -106,6 +112,52 @@ export default function AuthPage() {
     }
   };
 
+  // Show success message after signup
+  if (signupSuccess && !isLogin) {
+    return (
+      <div className="container flex items-center justify-center min-h-[calc(100vh-4rem)] py-8">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              Check Your Email
+            </h1>
+          </div>
+
+          <Card className="w-full">
+            <CardHeader className="text-center">
+              <CardTitle>Registration Successful!</CardTitle>
+              <CardDescription>
+                We've sent a verification email to <strong>{email}</strong>
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent className="space-y-4">
+              <Alert>
+                <AlertDescription>
+                  Please check your email and click the verification link to complete your account setup. 
+                  You'll need to verify your email before you can access the steganography features.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+            
+            <CardFooter className="flex flex-col space-y-4">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  setSignupSuccess(false);
+                  setIsLogin(true);
+                }}
+              >
+                Back to Login
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container flex items-center justify-center min-h-[calc(100vh-4rem)] py-8">
       <div className="w-full max-w-md">
@@ -142,16 +194,18 @@ export default function AuthPage() {
                 />
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="mobileNumber">Mobile Number (optional)</Label>
-                <Input
-                  id="mobileNumber"
-                  type="tel"
-                  placeholder="10-digit mobile number"
-                  value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
-                />
-              </div>
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="mobileNumber">Mobile Number (optional)</Label>
+                  <Input
+                    id="mobileNumber"
+                    type="tel"
+                    placeholder="10-digit mobile number"
+                    value={mobileNumber}
+                    onChange={(e) => setMobileNumber(e.target.value)}
+                  />
+                </div>
+              )}
               
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -192,6 +246,14 @@ export default function AuthPage() {
                   </Button>
                 </div>
               </div>
+
+              {!isLogin && (
+                <Alert>
+                  <AlertDescription>
+                    You'll receive a verification email after registration. Please check your inbox and click the verification link to complete your account setup.
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
             
             <CardFooter className="flex flex-col space-y-4">

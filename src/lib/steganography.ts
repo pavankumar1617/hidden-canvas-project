@@ -1,3 +1,4 @@
+
 import CryptoJS from 'crypto-js';
 
 export interface EncryptOptions {
@@ -52,8 +53,8 @@ function binaryToText(binary: string): string {
 }
 
 // Calculate if the image has enough capacity for the data
-function calculateCapacity(imageData: Uint8Array, binaryDataLength: number): boolean {
-  const availableBits = Math.floor(imageData.length * 0.75) - 128 - 32;
+function calculateCapacity(imageDataLength: number, binaryDataLength: number): boolean {
+  const availableBits = Math.floor(imageDataLength * 0.75) - 128 - 32;
   return availableBits >= binaryDataLength;
 }
 
@@ -103,8 +104,8 @@ function embedDataInCanvas(canvas: HTMLCanvasElement, binaryData: string): void 
   const prefix = textToBinary("STEG:");
   const binaryToEmbed = prefix + binaryData;
   
-  // Verify we have enough space
-  if (!calculateCapacity(data, binaryToEmbed.length)) {
+  // Verify we have enough space - fix the type issue by passing data.length
+  if (!calculateCapacity(data.length, binaryToEmbed.length)) {
     throw new Error("The image is too small to store this message. Please use a larger image or reduce your message size.");
   }
   
@@ -233,7 +234,6 @@ export async function revealMessage(options: DecryptOptions): Promise<string> {
   
   try {
     // Create canvas from image data
-    const blob = new Blob([imageData]);
     const { canvas } = await createCanvasFromImageData(imageData, 'image/png');
     
     // Extract binary data from canvas

@@ -1,6 +1,7 @@
 
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
+import { ChatBot } from "@/components/ChatBot";
 import { Outlet } from "react-router-dom";
 
 export function Layout() {
@@ -11,6 +12,7 @@ export function Layout() {
         <Outlet />
       </main>
       <Footer />
+      <ChatBot />
     </div>
   );
 }

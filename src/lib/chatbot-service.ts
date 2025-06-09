@@ -1,10 +1,18 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-export async function chatWithAI(message: string): Promise<string> {
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export async function chatWithAI(message: string, conversationHistory: Message[] = []): Promise<string> {
   try {
     const { data, error } = await supabase.functions.invoke('chat-with-ai', {
-      body: { message }
+      body: { 
+        message,
+        conversationHistory 
+      }
     });
 
     if (error) {

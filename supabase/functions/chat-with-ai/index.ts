@@ -25,7 +25,7 @@ Common user questions and helpful responses:
 - Email verification: Check spam folder, wait a few minutes, contact support if issues persist
 - Security: Use strong passwords, don't share the password with untrusted parties
 
-Keep responses helpful, friendly, and concise. Focus on practical guidance for using the app.`;
+Keep responses helpful, friendly, and concise. Focus on practical guidance for using the app. You can maintain context from previous messages in the conversation.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -33,11 +33,18 @@ serve(async (req) => {
   }
 
   try {
-    const { message } = await req.json();
+    const { message, conversationHistory = [] } = await req.json();
 
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
     }
+
+    // Build messages array with conversation history
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...conversationHistory,
+      { role: 'user', content: message }
+    ];
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -47,10 +54,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: message }
-        ],
+        messages: messages,
         max_tokens: 300,
         temperature: 0.7,
       }),

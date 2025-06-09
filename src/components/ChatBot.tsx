@@ -15,6 +15,11 @@ interface Message {
   timestamp: Date;
 }
 
+interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -25,6 +30,7 @@ export function ChatBot() {
       timestamp: new Date(),
     }
   ]);
+  const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -54,16 +60,33 @@ export function ChatBot() {
     setInputValue('');
     addMessage(userMessage, true);
 
+    // Add user message to conversation history
+    const newConversationHistory = [
+      ...conversationHistory,
+      { role: 'user' as const, content: userMessage }
+    ];
+
     setIsLoading(true);
     try {
-      const response = await chatWithAI(userMessage);
+      const response = await chatWithAI(userMessage, conversationHistory);
       addMessage(response, false);
+      
+      // Add both user message and AI response to conversation history
+      setConversationHistory([
+        ...newConversationHistory,
+        { role: 'assistant' as const, content: response }
+      ]);
     } catch (error) {
       console.error('Chat error:', error);
-      addMessage(
-        "Sorry, I couldn't process your request right now. Here are some quick tips:\n\n• To hide a message: Upload an image, enter your secret text and password, then click 'Hide Message'\n• To reveal a message: Upload the image with hidden content and enter the correct password\n• Make sure your image is large enough to store your message\n• Use a strong password for better security",
-        false
-      );
+      const fallbackResponse = "Sorry, I couldn't process your request right now. Here are some quick tips:\n\n• To hide a message: Upload an image, enter your secret text and password, then click 'Hide Message'\n• To reveal a message: Upload the image with hidden content and enter the correct password\n• Make sure your image is large enough to store your message\n• Use a strong password for better security";
+      
+      addMessage(fallbackResponse, false);
+      
+      // Add fallback response to conversation history
+      setConversationHistory([
+        ...newConversationHistory,
+        { role: 'assistant' as const, content: fallbackResponse }
+      ]);
     } finally {
       setIsLoading(false);
     }
@@ -76,12 +99,18 @@ export function ChatBot() {
     }
   };
 
+  // Reset conversation when chat is reopened
+  const handleOpenChat = () => {
+    setIsOpen(true);
+    // Don't reset on reopen to maintain conversation
+  };
+
   return (
     <>
       {/* Floating Chat Button */}
       {!isOpen && (
         <Button
-          onClick={() => setIsOpen(true)}
+          onClick={handleOpenChat}
           className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-shadow z-50"
           size="icon"
         >

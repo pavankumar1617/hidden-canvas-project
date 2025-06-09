@@ -54,7 +54,7 @@ export function ChatBot() {
   };
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isLoading) return;
 
     const userMessage = inputValue.trim();
     setInputValue('');
@@ -99,10 +99,8 @@ export function ChatBot() {
     }
   };
 
-  // Reset conversation when chat is reopened
   const handleOpenChat = () => {
     setIsOpen(true);
-    // Don't reset on reopen to maintain conversation
   };
 
   return (
@@ -121,7 +119,7 @@ export function ChatBot() {
       {/* Chat Window */}
       {isOpen && (
         <Card className="fixed bottom-6 right-6 w-80 h-96 shadow-xl z-50 flex flex-col">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 flex-shrink-0">
             <CardTitle className="text-lg">Stegano Assistant</CardTitle>
             <Button
               variant="ghost"
@@ -133,7 +131,7 @@ export function ChatBot() {
             </Button>
           </CardHeader>
 
-          <CardContent className="flex-1 flex flex-col p-0">
+          <CardContent className="flex-1 flex flex-col p-0 min-h-0">
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-4">
                 {messages.map((message) => (
@@ -154,7 +152,7 @@ export function ChatBot() {
               </div>
             </ScrollArea>
             
-            <div className="p-4 border-t">
+            <div className="p-4 border-t flex-shrink-0">
               <div className="flex gap-2">
                 <Input
                   value={inputValue}

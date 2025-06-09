@@ -15,11 +15,11 @@ interface ChatMessageProps {
 
 export function ChatMessage({ message }: ChatMessageProps) {
   const formatText = (text: string) => {
-    return text.split('\n').map((line, index) => (
-      <React.Fragment key={index}>
+    return text.split('\n').map((line, index, array) => (
+      <span key={index}>
         {line}
-        {index < text.split('\n').length - 1 && <br />}
-      </React.Fragment>
+        {index < array.length - 1 && <br />}
+      </span>
     ));
   };
 

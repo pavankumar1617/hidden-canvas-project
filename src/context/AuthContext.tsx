@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Session, User } from "@supabase/supabase-js";
@@ -14,6 +13,8 @@ type AuthContextType = {
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  signUpWithPhone: (phone: string, password: string) => Promise<void>;
+  verifyPhoneOtp: (phone: string, token: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -166,6 +167,71 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const signUpWithPhone = async (phone: string, password: string) => {
+    try {
+      // setLoading is handled in the component
+      cleanupAuthState();
+      
+      const { data, error } = await supabase.auth.signUp({
+        phone,
+        password,
+      });
+      
+      if (error) {
+        console.error("Phone signup error:", error);
+        if (error.message.includes("User already registered")) {
+          toast.error("A user with this phone number already exists.");
+        } else if (error.message.includes("Invalid phone number format")) {
+          toast.error("Invalid phone number format. Please use E.164 format (e.g., +14155552671).")
+        } else {
+          toast.error(error.message || "Failed to sign up with phone.");
+        }
+        throw error;
+      }
+      
+      if (data.user) {
+        toast.success("OTP sent to your mobile number. Please check your messages.");
+      }
+    } catch (error: any) {
+      console.error("Signup with phone error:", error);
+      throw error;
+    }
+  };
+
+  const verifyPhoneOtp = async (phone: string, token: string) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.verifyOtp({
+          phone,
+          token,
+          type: 'sms'
+      });
+      
+      if (error) {
+          console.error("OTP verification error:", error);
+          if (error.message.includes("expired")) {
+              toast.error("The OTP has expired. Please try again.");
+          } else {
+              toast.error("Invalid OTP. Please check the code and try again.");
+          }
+          throw error;
+      }
+
+      if (data.session) {
+          toast.success("Phone number verified successfully!");
+          // The onAuthStateChange listener will handle the new session.
+      } else {
+          toast.error("Verification failed. Please try signing up again.");
+          throw new Error("Verification failed to produce a session.");
+      }
+    } catch (error: any) {
+      console.error("OTP verification error:", error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signOut = async () => {
     try {
       setLoading(true);
@@ -211,6 +277,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signUp,
     signOut,
     resetPassword,
+    signUpWithPhone,
+    verifyPhoneOtp,
   };
 
   return (

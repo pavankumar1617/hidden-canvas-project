@@ -2,7 +2,7 @@
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/9ecb05d5-ebe5-4c58-a5a9-8593a6161ebd
+**URL**: https://hidden-canvas-project.lovable.app
 
 ## How can I edit this code?
 
